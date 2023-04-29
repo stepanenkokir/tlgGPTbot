@@ -20,7 +20,7 @@ class OpenAI {
     async chat (messages) {
         try {
             const response = await this.openai.createChatCompletion({
-                model:'gpt-3.5-turbo',
+                model:'gpt-3.5-turbo-0301',               
                 messages,
 
             })
@@ -28,6 +28,7 @@ class OpenAI {
             return response.data.choices[0].message
         } catch (e) {
             console.log("Error in GPT CHAT",e.message)
+            return {content:"Ошибка открытия чата"}
         }
     }
 
@@ -41,7 +42,7 @@ class OpenAI {
 
         } catch (e) {
             console.log("Error in transctription",e.message)
-            
+            return {content:"Ошибка распознавания текста"}
         }
     }
 

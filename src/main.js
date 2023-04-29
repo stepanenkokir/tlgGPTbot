@@ -15,19 +15,18 @@ bot.use(session())
 
 bot.command('new',async (ctx) =>{
     ctx.session = INITIAL_SESSION
-    await ctx.reply('Жду Ваше сообщение')
+    await ctx.reply('Начата новая сессия. Введите текст или отправьте голосовое сообщение.')
 })
 
 bot.command('start',async (ctx) =>{
     ctx.session = INITIAL_SESSION
-    await ctx.reply('Жду Ваше сообщение')
+    await ctx.reply('Введите текст или отправьте голосовое сообщение.')
 })
-
 
 bot.on(message('voice'), async ctx => {
     ctx.session ??= INITIAL_SESSION
     try {
-        await ctx.reply(code('Waitin server response...'))
+        await ctx.reply(code('Подождите, обрабатываю...'))
         //await ctx.reply(JSON.stringify(ctx.message.voice,null,2))
         const userId = String(ctx.message.from.id)
         const link = await ctx.telegram.getFileLink(ctx.message.voice.file_id)
@@ -35,12 +34,13 @@ bot.on(message('voice'), async ctx => {
         const mp3Path = await ogg.toMP3(oggPath, userId)
 
         const text = await openai.transcription(mp3Path)
-        await ctx.reply(code(`Запрос; ${text}`))
+        //await ctx.reply(code(`Запрос; ${text}`))
         ctx.session.messages.push({role:openai.roles.USER, content:text})
         const response = await openai.chat(ctx.session.messages)
         ctx.session.messages.push({role:openai.roles.ASSISTANT, content:response.content})
         await ctx.reply(response.content)
     } catch (error) {
+        await ctx.reply(code('Что-то не так. Ошибка при обработке голосового сообщения.'))
         console.log("Error while voice message",error.message)
     }
     
@@ -50,7 +50,7 @@ bot.on(message('voice'), async ctx => {
 bot.on(message('text'), async ctx => {
     ctx.session ??= INITIAL_SESSION
     try {
-        await ctx.reply(code('Waitin server response...'+ ctx.message.text))
+        await ctx.reply(code('Я думаю...'+ ctx.message.text))
         
         ctx.session.messages.push({role:openai.roles.USER, content:ctx.message.text})
         const response = await openai.chat(ctx.session.messages)
@@ -58,11 +58,9 @@ bot.on(message('text'), async ctx => {
         await ctx.reply(response.content)
     } catch (error) {
         console.log("Error while voice message",error.message)
-    }
-    
+        await ctx.reply(code('Что-то не так. Ошибка при обработке текста.'))
+    }    
 })
-
-
 
 bot.launch()
 
