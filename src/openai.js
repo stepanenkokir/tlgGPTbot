@@ -12,6 +12,7 @@ class OpenAI {
     }
     constructor (apiKey) {
         const configuration = new Configuration({
+            organization: "org-tUgH9aoJiNrF8mExH0EHBUW9",
             apiKey: apiKey,
           });
           this.openai = new OpenAIApi(configuration);
@@ -31,6 +32,30 @@ class OpenAI {
             return {content:"Ошибка открытия чата"}
         }
     }
+
+
+    async genImage(message,cnt) {
+        try {            
+            const response = await this.openai.createImage({
+            prompt: message,
+            n: cnt,
+            size: "1024x1024",
+            });
+            const image_url = [];
+            image_url.push(response.data.data[0].url);
+            if (cnt>1){
+                image_url.push(response.data.data[1].url);
+                image_url.push(response.data.data[2].url);
+                image_url.push(response.data.data[3].url);
+            }              
+            //console.log( response.data)
+            return image_url
+        } catch (e) {
+            console.log("Error in GPT CHAT generate Image",e.message)
+            return {content:"Ошибка открытия чата генерации изображения"}
+        }
+    }
+
 
     async crIm (messages) {
         try {

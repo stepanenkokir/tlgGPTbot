@@ -12,6 +12,11 @@ const INITIAL_SESSION = {
 }
 const bot = new Telegraf(config.get('TELEGRAM_TOKEN'))
 
+const parametres = {
+    image:false,
+    cnt:1
+}
+
 bot.use(session())
 
 
@@ -73,12 +78,27 @@ function checkSession(chatId) {
 }
 
 bot.command('start',async (ctx) =>{
- 
-   
     // Получение текущей сессии клиента
     checkSession(ctx.chat.id)
    //console.log(session[chatId])
     await ctx.reply('Введите текст или отправьте голосовое сообщение.')
+})
+
+
+bot.command('image',async (ctx) =>{
+    // Получение текущей сессии клиента
+    checkSession(ctx.chat.id)
+    parametres.image = true
+    parametres.cnt = 1
+    await ctx.reply('Сейчас введите описание желаемой картинки')
+})
+
+bot.command('images',async (ctx) =>{
+    // Получение текущей сессии клиента
+    checkSession(ctx.chat.id)
+    parametres.image = true
+    parametres.cnt = 4
+    await ctx.reply('Сейчас введите описание желаемой картинки (будет 4 варианта)') 
 })
 
 bot.command('mem',async (ctx) =>{   
@@ -132,15 +152,29 @@ bot.on(message('voice'), async ctx => {
 bot.on(message('text'), async ctx => {
     checkSession(ctx.chat.id)
     try {
-        await ctx.reply(code('Я думаю...'))
+        if (parametres.image){
+            await ctx.reply(code('Я рисую...'))           
+            const response = await openai.genImage(ctx.message.text,parametres.cnt)
+               
+            await ctx.reply(response[0])
+            if (parametres.cnt>1){
+                await ctx.reply(response[1])
+                await ctx.reply(response[2])
+                await ctx.reply(response[3])    
+            }
+            
+            parametres.image = false
+        }else{
+            await ctx.reply(code('Я думаю...'))
         
-        session[ctx.chat.id].messages.push({role:openai.roles.USER, content:ctx.message.text})
-        const response = await openai.chat(session[ctx.chat.id].messages)
-        session[ctx.chat.id].messages.push({role:openai.roles.ASSISTANT, content:response.content})
-        await ctx.reply(response.content)
+            session[ctx.chat.id].messages.push({role:openai.roles.USER, content:ctx.message.text})
+            const response = await openai.chat(session[ctx.chat.id].messages)
+            session[ctx.chat.id].messages.push({role:openai.roles.ASSISTANT, content:response.content})        
+            await ctx.reply(response.content)
+        }
     } catch (error) {
         console.log("Error while TEXT message",error.message)
-        await ctx.reply(spoiler('Что-то не так. Ошибка при обработке текста.'))
+        await ctx.reply('Что-то не так. Ошибка при обработке текста.')
     }    
 })
 
