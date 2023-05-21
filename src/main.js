@@ -14,10 +14,28 @@ const bot = new Telegraf(config.get('TELEGRAM_TOKEN'))
 
 bot.use(session())
 
+
+// Приветственное сообщение
+bot.start((ctx) => {
+    checkSession(ctx.chat.id)
+    ctx.reply('Привет! Для работы с чатом GPT нужно отправить текстовое или голосовое сообщение. \
+    ВНИМАНИЕ. В рамках сессии чат запоминает все вопросы и ответы, чтобы использовать контекст для \
+    формирования следующих ответов. Поэтому при смене темы настоятельно рекомендую обнулять историю \
+    командой /new (или через меню) чтобы не захламлять память и ускорить работу чата. Удачи. Вопросы и предложения отправлять @stekiva');
+  });
+
 bot.command('new',async (ctx) =>{
     checkSession(ctx.chat.id)
     newSessionArray(ctx.chat.id)
-    await ctx.reply('Начата новая сессия. Введите текст или отправьте голосовое сообщение.')
+    ctx.reply('Начата новая сессия. Введите текст или отправьте голосовое сообщение.')
+   // console.log(ctx.message.chat.id)
+})
+
+bot.command('help',async (ctx) =>{
+    ctx.reply('Для работы с чатом GPT нужно отправить текстовое или голосовое сообщение. \
+    ВНИМАНИЕ. В рамках сессии чат запоминает все вопросы и ответы, чтобы использовать контекст для \
+    формирования следующих ответов. Поэтому при смене темы настоятельно рекомендую обнулять историю \
+    командой /new (или через меню) чтобы не захламлять память и ускорить работу чата. Удачи. Вопросы и предложения отправлять @stekiva')
    // console.log(ctx.message.chat.id)
 })
 
@@ -27,7 +45,7 @@ function newSessionArray(chatId) {
     session[chatId] = {
         messages:[],
     };
-    console.log("Free session ", session[chatId].messages.length)
+   // console.log("Free session ", session[chatId].messages.length)
 }
 
 // Функция проверки количества сообщений
@@ -49,9 +67,9 @@ function checkSession(chatId) {
     if (!sess) {     
       // Создание новой сессии
       newSessionArray(chatId);
-      console.log("Session create for ", chatId)
+     // console.log("Session create for ", chatId)
     }
-    console.log("Session is good!!", chatId)
+   // console.log("Session is good!!", chatId)
 }
 
 bot.command('start',async (ctx) =>{
@@ -109,10 +127,7 @@ bot.on(message('voice'), async ctx => {
         await ctx.reply(code('Что-то не так. Ошибка при обработке голосового сообщения.'))
         console.log("Error while voice message",error.message)
     }
-    
 })
-
-
 
 bot.on(message('text'), async ctx => {
     checkSession(ctx.chat.id)
