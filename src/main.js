@@ -7,12 +7,8 @@ import { ogg } from "./ogg.js";
 import {openai} from './openai.js'
 import { photo_handler } from "./photo.js";
 
-console.log(config.get("TYPE_PROD"))
-
 const { combine, timestamp, printf } = format;
-const INITIAL_SESSION = {
-    messages:[],
-}
+
 const bot = new Telegraf(config.get('TELEGRAM_TOKEN'))
 
 const parametres = {
@@ -154,7 +150,7 @@ bot.on(message('photo'), async ctx =>{
 })
 
 bot.on(message('voice'), async ctx => {
-    ctx.session ??= INITIAL_SESSION
+    checkSession(ctx.chat.id)
     try {
         await ctx.reply(code('Подождите, обрабатываю...'))
         //await ctx.reply(JSON.stringify(ctx.message.voice,null,2))
@@ -164,11 +160,27 @@ bot.on(message('voice'), async ctx => {
         const mp3Path = await ogg.toMP3(oggPath, userId)
 
         const text = await openai.transcription(mp3Path)
-        await ctx.reply(code(`Запрос; ${text}`))
-        session[ctx.chat.id].messages.push({role:openai.roles.USER, content:text})
-        const response = await openai.chat(session[ctx.chat.id].messages)
-        session[ctx.chat.id].messages.push({role:openai.roles.ASSISTANT, content:response.content})
-        await ctx.reply(response.content)
+
+
+        if (parametres.image){
+            await ctx.reply(code(`Я рисую: ${text}`))           
+            const response = await openai.genImage(text,parametres.cnt)
+               
+            await ctx.reply(response[0])
+            if (parametres.cnt>1){
+                await ctx.reply(response[1])
+                await ctx.reply(response[2])
+                await ctx.reply(response[3])    
+            }
+            
+            parametres.image = false
+        }else{
+            await ctx.reply(code(`Запрос: ${text}`))
+            session[ctx.chat.id].messages.push({role:openai.roles.USER, content:text})
+            const response = await openai.chat(session[ctx.chat.id].messages)
+            session[ctx.chat.id].messages.push({role:openai.roles.ASSISTANT, content:response.content})
+            await ctx.reply(response.content)
+        }
     } catch (error) {
         await ctx.reply(code('Что-то не так. Ошибка при обработке голосового сообщения.'))
         console.log("Error while voice message",error.message)
