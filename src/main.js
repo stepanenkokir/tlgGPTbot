@@ -1,4 +1,5 @@
 import { Telegraf, session } from "telegraf";
+import { createLogger, format, transports }from 'winston';
 import {message} from "telegraf/filters"
 import {code} from "telegraf/format"
 import config from 'config'
@@ -7,6 +8,8 @@ import {openai} from './openai.js'
 import { photo_handler } from "./photo.js";
 
 console.log(config.get("TYPE_PROD"))
+
+const { combine, timestamp, printf } = format;
 const INITIAL_SESSION = {
     messages:[],
 }
@@ -16,9 +19,32 @@ const parametres = {
     image:false,
     cnt:1
 }
+// Log format
+const logFormat = printf(({ level, message, timestamp }) => {
+    return `[${timestamp}] ${level}: ${message}`;
+  });
+
+  // Create a logger instance
+const logger = createLogger({
+    format: combine(timestamp(), logFormat),
+    transports: [new transports.Console(), new transports.File({ filename: 'bot.log' })],
+  });
 
 bot.use(session())
 
+bot.use((ctx, next) => {
+    const userId = ctx.from.id;
+    const userLogger = createLogger({
+      format: combine(timestamp(), logFormat),
+      transports: [new transports.Console(), new transports.File({ filename: `log/${userId}.log` })],
+    });
+  
+    // Log the incoming message
+    userLogger.info(`Received message: ${ctx.message.text}`);
+  
+    // Pass control to the next middleware
+    next();
+  });
 
 // Приветственное сообщение
 bot.start((ctx) => {

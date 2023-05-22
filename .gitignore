@@ -4,5 +4,7 @@ config/default.json
 config/production.json
 voices/*.mp3
 voices/*.ogg
+log/*.log
 images/*.jpg
 .vscode
+bot.log
