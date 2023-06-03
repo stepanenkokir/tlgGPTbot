@@ -8,3 +8,4 @@ log/*.log
 images/*.jpg
 .vscode
 bot.log
+/list/*.txt

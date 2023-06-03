@@ -23,7 +23,7 @@ class OggConverter {
                     .inputOption('-t 30')
                     .output(outputPath)
                     .on('end', () => {
-                        removeFile(input)
+                       removeFile(input)
 
                         resolve(outputPath)
                     }) 
@@ -32,6 +32,25 @@ class OggConverter {
             })
         } catch (e) {
             console.log("Error in convert to mp3", e.message)
+        }
+    }
+
+    toOGG(input) {
+        try {
+            const outputPath = 'voices/tmpOggFile.ogg'           
+            return new Promise ((resolve, reject) =>{
+                ffmpeg(input)
+                    .audioCodec('libvorbis')
+                    .outputOptions('-vn')
+                    .output(outputPath)
+                    .on('end', () => {
+                        resolve(outputPath)
+                    }) 
+                    .on('error', (err) =>reject(err.message))
+                    .run()
+            })
+        } catch (e) {
+            console.log("Error in convert to ogg", e.message)
         }
     }
 
