@@ -34,6 +34,7 @@ class AllowedUsersManager {
       this.allowedUserIds.push(userId);
       this.writeAllowedUserIds();
     }
+    this.readAllowedUserIds();
   }
 
   removeUser(userId) {
@@ -42,6 +43,12 @@ class AllowedUsersManager {
       this.allowedUserIds.splice(index, 1);
       this.writeAllowedUserIds();
     }
+    this.readAllowedUserIds();
+  }
+
+  listUserId() {
+    this.readAllowedUserIds();
+    return this.allowedUserIds;
   }
 
   isUserAllowed(userId) {

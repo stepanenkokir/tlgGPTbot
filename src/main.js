@@ -80,7 +80,7 @@ bot.command('join',async (ctx) =>{
 })
 
 bot.command('stekirAdd', (ctx) => {
-    if (ctx.chat.id!==adminId) return;
+    if (String(ctx.chat.id)!==String(adminId)) return;
     const commandWithParams = ctx.message.text; // Получаем текст команды
   
     // Проверяем, содержит ли команда данные после "__"
@@ -115,7 +115,11 @@ bot.command('stekirAdd', (ctx) => {
   });
 
   bot.command('stekirList', (ctx) => {
-    
+    const listUI = allow_user.listUserId();
+    console.log(listUI)
+    for (let i=0;i<listUI.length;i++){
+        ctx.reply( String(listUI[i]));
+    }
   });
 
 
