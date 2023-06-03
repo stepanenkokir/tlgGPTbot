@@ -13,7 +13,7 @@ class AllowedUsersManager {
   readAllowedUserIds() {
     try {
       const data = fs.readFileSync(this.filePath, 'utf8');
-      this.allowedUserIds = JSON.parse(data);
+      this.allowedUserIds = JSON.parse(data).map(Number);
     } catch (err) {
       console.error(`Ошибка чтения файла ${this.filePath}:`, err);
     }
@@ -51,8 +51,7 @@ class AllowedUsersManager {
     return this.allowedUserIds;
   }
 
-  isUserAllowed(userId) {
-    console.log("Before check",userId,this.allowedUserIds)
+  isUserAllowed(userId) {    
     return this.allowedUserIds.includes(userId);
   }
 }
