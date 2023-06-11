@@ -14,6 +14,7 @@ const outputOggFile= 'voices/tmpOggFile.ogg'
 const bot = new Telegraf(config.get('TELEGRAM_TOKEN'))
 
 const adminId = config.get('adminId')
+const listNames = {};
 
 
 const parametres = {
@@ -37,24 +38,29 @@ const logger = createLogger({
 
 bot.use(session())
 
+const saveLog = (id, msg) => {
+    const userLogger = createLogger({
+        format: combine(timestamp(), logFormat),
+        transports: [new transports.Console(), new transports.File({ filename: `log/${listNames[id]}.log` })],
+      });
+    
+      // Log the incoming message
+      userLogger.info(`message: ${msg}`);
+}
+
 bot.use((ctx, next) => {
     const userId = ctx.from.id;
-    const userLogger = createLogger({
-      format: combine(timestamp(), logFormat),
-      transports: [new transports.Console(), new transports.File({ filename: `log/${userId}.log` })],
-    });
-  
-    // Log the incoming message
-    userLogger.info(`Received message: ${ctx.message.text}`);
-  
-    // Pass control to the next middleware
+    if (!listNames.hasOwnProperty(userId)){
+        
+        listNames[userId] = ctx.chat.first_name+"_"+ctx.chat.last_name+ '_@'+ctx.chat.username
+       // console.log("Create ", userId, listNames, ctx)
+    }
+    saveLog(userId,  ctx.message.text);
     next();
   });
 
 // Приветственное сообщение
 bot.start((ctx) => {
-   
-
     const userId = ctx.from.id;
 
     console.log("Check")
@@ -200,12 +206,12 @@ function checkSession(chatId,ctx) {
    return true;
 }
 
-bot.command('start',async (ctx) =>{
-    // Получение текущей сессии клиента
-    if (!checkSession(ctx.chat.id))return;
-   //console.log(session[chatId])
-    await ctx.reply('Введите текст или отправьте голосовое сообщение.')
-})
+// bot.command('start',async (ctx) =>{
+//     // Получение текущей сессии клиента
+//     if (!checkSession(ctx.chat.id))return;
+//    //console.log(session[chatId])
+//     await ctx.reply('Введите текст или отправьте голосовое сообщение.')
+// })
 
 
 bot.command('image',async (ctx) =>{
@@ -229,27 +235,27 @@ bot.command('mem',async (ctx) =>{
     await ctx.reply('In memory has '+countMessages(ctx.chat.id)+' messages')
 })
 
-bot.on(message('photo'), async ctx =>{
-    if (!checkSession(ctx.chat.id))return; 
-    try {
-        const userId = String(ctx.message.from.id)
-        const arrayPhotos = ctx.message.photo
-        const lastPhoto = arrayPhotos[arrayPhotos.length -1]
-        const link = await ctx.telegram.getFileLink(lastPhoto.file_id)
-       // const oggPath = await ogg.create(oggPath, userId,'png')
-        const ph64 = await photo_handler.toBase64(link.href, userId)
-        // const message = [
-        //     { role: openai.roles.USER, content: ph64 },          
-        //   ]
+// bot.on(message('photo'), async ctx =>{
+//     if (!checkSession(ctx.chat.id))return; 
+//     try {
+//         const userId = String(ctx.message.from.id)
+//         const arrayPhotos = ctx.message.photo
+//         const lastPhoto = arrayPhotos[arrayPhotos.length -1]
+//         const link = await ctx.telegram.getFileLink(lastPhoto.file_id)
+//        // const oggPath = await ogg.create(oggPath, userId,'png')
+//         const ph64 = await photo_handler.toBase64(link.href, userId)
+//         // const message = [
+//         //     { role: openai.roles.USER, content: ph64 },          
+//         //   ]
        
-        const response = await openai.crIm(ph64)
-         console.log(response)
-       // console.log(ph64)
-      // await ctx.reply(response.content)
-    } catch (e) {
-        console.log("Error while photo message",e.message) 
-    }
-})
+//         const response = await openai.crIm(ph64)
+//          console.log(response)
+//        // console.log(ph64)
+//       // await ctx.reply(response.content)
+//     } catch (e) {
+//         console.log("Error while photo message",e.message) 
+//     }
+// })
 
 bot.on(message('voice'), async ctx => {
      if (!checkSession(ctx.chat.id))return;
@@ -263,6 +269,7 @@ bot.on(message('voice'), async ctx => {
 
         const text = await openai.transcription(mp3Path)
 
+        saveLog(ctx.chat.id, "VOICE: "+text)
 
         if (parametres.image){
             await ctx.reply(code(`Я рисую: ${text}`))           
