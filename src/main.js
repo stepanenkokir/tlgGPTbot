@@ -52,7 +52,7 @@ bot.use((ctx, next) => {
     const userId = ctx.from.id;
     if (!listNames.hasOwnProperty(userId)){
         
-        listNames[userId] = ctx.chat.first_name+"_"+ctx.chat.last_name+ '_@'+ctx.chat.username
+        listNames[userId] = userId+"_"+ctx.chat.first_name+"_"+ctx.chat.last_name+ '_@'+ctx.chat.username
        // console.log("Create ", userId, listNames, ctx)
     }
     saveLog(userId,  ctx.message.text);
