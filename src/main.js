@@ -5,13 +5,13 @@ import {code} from "telegraf/format"
 import config from 'config'
 import { ogg } from "./ogg.js";
 import {openai} from './openai.js'
-import { photo_handler } from "./photo.js";
-import { voice_handler } from "./voice.js";
 import {allow_user} from './AllowedUserManager.js'
 
 const { combine, timestamp, printf } = format;
 const outputOggFile= 'voices/tmpOggFile.ogg'
 const bot = new Telegraf(config.get('TELEGRAM_TOKEN'))
+
+let lastAwaitMsg
 
 const adminId = config.get('adminId')
 const listNames = {};
@@ -19,6 +19,9 @@ const listNames = {};
 
 const parametres = {
     image:false,
+    image1:false,
+    image2:false,
+    setrole:false,
     cnt:1,
     voice:false,
 }
@@ -62,19 +65,15 @@ bot.use((ctx, next) => {
 // Приветственное сообщение
 bot.start((ctx) => {
     const userId = ctx.from.id;
-
-    console.log("Check")
-  // Проверяем, является ли пользователь разрешенным
-  if (allow_user.isUserAllowed(userId)) {
-    
-     ctx.reply('Привет! Для работы с чатом GPT нужно отправить текстовое или голосовое сообщение. \
-    ВНИМАНИЕ. В рамках сессии чат запоминает все вопросы и ответы, чтобы использовать контекст для \
-    формирования следующих ответов. Поэтому при смене темы настоятельно рекомендую обнулять историю \
-    командой /new (или через меню) чтобы не захламлять память и ускорить работу чата. Удачи. Вопросы и предложения отправлять @stekiva');
-    checkSession(userId)
-  } else {
-     ctx.reply('Вы не являетесь разрешенным пользователем. \nДля получения разрешения отправьте команду\n /join \nили напишите сообщение автору @stekiva');
-  }
+    if (allow_user.isUserAllowed(userId)) {
+        ctx.reply('Привет! Для работы с чатом GPT нужно отправить текстовое или голосовое сообщение. \
+        ВНИМАНИЕ. В рамках сессии чат запоминает все вопросы и ответы, чтобы использовать контекст для \
+        формирования следующих ответов. Поэтому при смене темы настоятельно рекомендую обнулять историю \
+        командой /new (или через меню) чтобы не захламлять память и ускорить работу чата. Удачи. Вопросы и предложения отправлять @stekiva');
+        checkSession(userId)
+    } else {
+        ctx.reply('Вы не являетесь разрешенным пользователем. \nДля получения разрешения отправьте команду\n /join \nили напишите сообщение автору @stekiva');
+    }
     
   });
 
@@ -106,7 +105,6 @@ bot.command('stekirAdd', (ctx) => {
   bot.command('stekirDel', (ctx) => {
     if (ctx.chat.id!==adminId) return;
     const commandWithParams = ctx.message.text;
-  
    
     if (commandWithParams.includes(' ')) {
       const data = commandWithParams.split(' ')[1]; 
@@ -120,13 +118,13 @@ bot.command('stekirAdd', (ctx) => {
     }
   });
 
-  bot.command('stekirList', (ctx) => {
+bot.command('stekirList', (ctx) => {
     const listUI = allow_user.listUserId();
     console.log(listUI)
     for (let i=0;i<listUI.length;i++){
         ctx.reply( String(listUI[i]));
     }
-  });
+});
 
 
 bot.command('new',async (ctx) =>{
@@ -138,25 +136,18 @@ bot.command('new',async (ctx) =>{
 
 
 bot.command('voice',async (ctx) =>{
-     if (!checkSession(ctx.chat.id))return;   
+    if (!checkSession(ctx.chat.id))return;   
 
     if (parametres.voice){
         ctx.reply(' Голосовые ответы выключены.')
-       // voice_handler.tellMe('Voice off')
-       // .then(ctx.replyWithVoice({ source: outputOggFile }))
         parametres.voice = false
     }
     else
     {
         ctx.reply(' Голосовые ответы включены.')
-       // voice_handler.tellMe('Voice on')
-       // .then(ctx.replyWithVoice({ source: outputOggFile }))
         parametres.voice = true
-    }
-    
+    }    
 })
-
-
 
 bot.command('help',async (ctx) =>{
     ctx.reply('Для работы с чатом GPT нужно отправить текстовое или голосовое сообщение. \
@@ -186,7 +177,6 @@ function getSession(chatId) {
     return session[chatId];
 }
 
-
 // Функция для проверки текущей сессии клиента
 function checkSession(chatId,ctx) {
 
@@ -206,20 +196,13 @@ function checkSession(chatId,ctx) {
    return true;
 }
 
-// bot.command('start',async (ctx) =>{
-//     // Получение текущей сессии клиента
-//     if (!checkSession(ctx.chat.id))return;
-//    //console.log(session[chatId])
-//     await ctx.reply('Введите текст или отправьте голосовое сообщение.')
-// })
-
 
 bot.command('image',async (ctx) =>{
     // Получение текущей сессии клиента
      if (!checkSession(ctx.chat.id))return;
     parametres.image = true
     parametres.cnt = 1
-    await ctx.reply('Сейчас введите описание желаемой картинки')
+    lastAwaitMsg = await ctx.reply('Сейчас введите описание желаемой картинки')
 })
 
 bot.command('images',async (ctx) =>{
@@ -227,7 +210,39 @@ bot.command('images',async (ctx) =>{
      if (!checkSession(ctx.chat.id))return;
     parametres.image = true
     parametres.cnt = 4
-    await ctx.reply('Сейчас введите описание желаемой картинки (будет 4 варианта)') 
+    lastAwaitMsg = await ctx.reply('Сейчас введите описание желаемой картинки (будет 4 варианта)') 
+})
+
+
+bot.command('image1',async (ctx) =>{
+    // Получение текущей сессии клиента
+     if (!checkSession(ctx.chat.id))return;
+    parametres.image1 = true
+    parametres.cnt = 1
+    lastAwaitMsg = await ctx.reply('Oписание реалестичной картинки.')
+})
+
+bot.command('role',async (ctx) =>{
+    // Получение текущей сессии клиента
+    if (!checkSession(ctx.chat.id))return;
+    parametres.setrole = true
+    await ctx.reply('Скажите, кто я сейчас?')
+})
+
+bot.command('image2',async (ctx) =>{
+    // Получение текущей сессии клиента
+     if (!checkSession(ctx.chat.id))return;
+    parametres.image1 = true
+    parametres.cnt = 1
+    lastAwaitMsg = await ctx.reply('Oписание сюрреалестичной картинки.')
+})
+
+
+bot.command('secretmenu',async (ctx) =>{
+    // Получение текущей сессии клиента
+     if (!checkSession(ctx.chat.id))return;
+   
+    await ctx.reply('скрытые варианты команд \n /voice - включить или выключить голосовой ответ \n /image1 - красивая натуральная картинка \n /image2 - красивая ненатуральная картинка')
 })
 
 bot.command('mem',async (ctx) =>{   
@@ -235,33 +250,10 @@ bot.command('mem',async (ctx) =>{
     await ctx.reply('In memory has '+countMessages(ctx.chat.id)+' messages')
 })
 
-// bot.on(message('photo'), async ctx =>{
-//     if (!checkSession(ctx.chat.id))return; 
-//     try {
-//         const userId = String(ctx.message.from.id)
-//         const arrayPhotos = ctx.message.photo
-//         const lastPhoto = arrayPhotos[arrayPhotos.length -1]
-//         const link = await ctx.telegram.getFileLink(lastPhoto.file_id)
-//        // const oggPath = await ogg.create(oggPath, userId,'png')
-//         const ph64 = await photo_handler.toBase64(link.href, userId)
-//         // const message = [
-//         //     { role: openai.roles.USER, content: ph64 },          
-//         //   ]
-       
-//         const response = await openai.crIm(ph64)
-//          console.log(response)
-//        // console.log(ph64)
-//       // await ctx.reply(response.content)
-//     } catch (e) {
-//         console.log("Error while photo message",e.message) 
-//     }
-// })
-
 bot.on(message('voice'), async ctx => {
      if (!checkSession(ctx.chat.id))return;
     try {
-        await ctx.reply(code('Подождите, обрабатываю...'))
-        //await ctx.reply(JSON.stringify(ctx.message.voice,null,2))
+        lastAwaitMsg =  await ctx.reply(code('Подождите, обрабатываю...'))       
         const userId = String(ctx.message.from.id)
         const link = await ctx.telegram.getFileLink(ctx.message.voice.file_id)
         const oggPath = await ogg.create(link.href, userId,'ogg')
@@ -270,67 +262,92 @@ bot.on(message('voice'), async ctx => {
         const text = await openai.transcription(mp3Path)
 
         saveLog(ctx.chat.id, "VOICE: "+text)
+        await removeLastMsg(ctx)
+        await textHandler(ctx,text)
 
-        if (parametres.image){
-            await ctx.reply(code(`Я рисую: ${text}`))           
-            const response = await openai.genImage(text,parametres.cnt)
-               
-            await ctx.reply(response[0])
-            if (parametres.cnt>1){
-                await ctx.reply(response[1])
-                await ctx.reply(response[2])
-                await ctx.reply(response[3])    
-            }
-            
-            parametres.image = false
-        }else{
-            await ctx.reply(code(`Запрос: ${text}`))
-            session[ctx.chat.id].messages.push({role:openai.roles.USER, content:text})
-            const response = await openai.chat(session[ctx.chat.id].messages)
-            session[ctx.chat.id].messages.push({role:openai.roles.ASSISTANT, content:response.content})
-            if (parametres.voice){
-                await  voice_handler.tellMe(response.content)                                
-                .then( ctx.reply(response.content))
-                .then(ctx.replyWithVoice({ source: outputOggFile }))
-            }
-            else
-                await ctx.reply(response.content)
-        }
     } catch (error) {
         await ctx.reply(code('Что-то не так. Ошибка при обработке голосового сообщения.'))
         console.log("Error while voice message",error.message)
     }
 })
 
+const removeLastMsg = async (ctx) =>{
+    try {
+        await ctx.telegram.deleteMessage(ctx.chat.id, lastAwaitMsg.message_id)
+        lastAwaitMsg = null
+    } catch (error) {
+        console.log("Not data for lastAwaitMsg:",lastAwaitMsg)
+    }           
+}
+
+const textHandler = async (ctx, text) =>{
+
+    await removeLastMsg(ctx)
+
+    if (parametres.setrole){
+        newSessionArray(ctx.chat.id)
+        session[ctx.chat.id].messages.push({role:openai.roles.SYSTEM, content:text})
+        await ctx.reply("Установлена новая роль")
+        parametres.setrole = false
+        return
+    }
+
+    if (parametres.image1 || text.toLowerCase().includes('нарисуй')){
+        lastAwaitMsg = await ctx.reply(code('Я рисую...'))
+        const response = await openai.genImage1(text,0)
+        await removeLastMsg(ctx)
+        await ctx.reply(response[0])            
+        parametres.image1 = false
+        return
+    }
+
+    if(parametres.image2){
+        lastAwaitMsg = await ctx.reply(code('Я рисую...'))           
+        const response = await openai.genImage1(text,1)
+        await removeLastMsg(ctx)
+        await ctx.reply(response[0])            
+        
+        parametres.image2 = false
+        return
+    }
+
+    if (parametres.image){
+        lastAwaitMsg = await ctx.reply(code('Я рисую...'))           
+        const response = await openai.genImage(text,parametres.cnt)
+        await removeLastMsg(ctx)
+        await ctx.reply(response[0])
+        if (parametres.cnt>1){
+            await ctx.reply(response[1])
+            await ctx.reply(response[2])
+            await ctx.reply(response[3])    
+        }
+        
+        parametres.image = false
+        return
+    }
+   
+    lastAwaitMsg = await ctx.reply(code('Я думаю...'))        
+    session[ctx.chat.id].messages.push({role:openai.roles.USER, content: text})
+    const response = await openai.chat(session[ctx.chat.id].messages)
+    session[ctx.chat.id].messages.push({role:openai.roles.ASSISTANT, content:response.content})        
+    
+    if (parametres.voice || text.toLowerCase().includes('расскажи')){   
+        const voiceFile = await openai.genVoice(response.content, ctx.chat.id)
+        console.log("Voice answer here: ",voiceFile)
+        await ctx.replyWithVoice({source:voiceFile})
+    }
+    else
+        await ctx.reply(response.content)
+
+    await removeLastMsg(ctx)
+}
+
 bot.on(message('text'), async ctx => {
      if (!checkSession(ctx.chat.id))return;
     try {
-        if (parametres.image){
-            await ctx.reply(code('Я рисую...'))           
-            const response = await openai.genImage(ctx.message.text,parametres.cnt)
-               
-            await ctx.reply(response[0])
-            if (parametres.cnt>1){
-                await ctx.reply(response[1])
-                await ctx.reply(response[2])
-                await ctx.reply(response[3])    
-            }
-            
-            parametres.image = false
-        }else{
-            await ctx.reply(code('Я думаю...'))
-        
-            session[ctx.chat.id].messages.push({role:openai.roles.USER, content:ctx.message.text})
-            const response = await openai.chat(session[ctx.chat.id].messages)
-            session[ctx.chat.id].messages.push({role:openai.roles.ASSISTANT, content:response.content})        
-            if (parametres.voice){               
-                await  voice_handler.tellMe(response.content)                                
-                .then( ctx.reply(response.content))
-                .then(ctx.replyWithVoice({ source: outputOggFile }))
-            }
-            else
-                await ctx.reply(response.content)
-        }
+
+        await textHandler(ctx,ctx.message.text)
+    
     } catch (error) {
         console.log("Error while TEXT message",error.message)
         await ctx.reply('Что-то не так. Ошибка при обработке текста.')
