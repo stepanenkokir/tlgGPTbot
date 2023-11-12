@@ -94,7 +94,7 @@ class myOpenAI {
                 model: 'tts-1', 
                 input: message,
                 voice:'fable',
-                speed: 0.9
+                speed: 1
             })  
             return new Promise((resolve,reject) =>{
                 const body = speech.body

@@ -242,7 +242,11 @@ bot.command('secretmenu',async (ctx) =>{
     // Получение текущей сессии клиента
      if (!checkSession(ctx.chat.id))return;
    
-    await ctx.reply('скрытые варианты команд \n /voice - включить или выключить голосовой ответ \n /image1 - красивая натуральная картинка \n /image2 - красивая ненатуральная картинка')
+    await ctx.reply('скрытые варианты команд: \n \
+    /role - задать роль \n \
+    /voice - включить или выключить голосовой ответ \n \
+    /image1 - красивая натуральная картинка \n \
+    /image2 - красивая ненатуральная картинка')
 })
 
 bot.command('mem',async (ctx) =>{   
@@ -257,9 +261,10 @@ bot.on(message('voice'), async ctx => {
         const userId = String(ctx.message.from.id)
         const link = await ctx.telegram.getFileLink(ctx.message.voice.file_id)
         const oggPath = await ogg.create(link.href, userId,'ogg')
-        const mp3Path = await ogg.toMP3(oggPath, userId)
+        // const mp3Path = await ogg.toMP3(oggPath, userId)
 
-        const text = await openai.transcription(mp3Path)
+        //const text = await openai.transcription(mp3Path)
+        const text = await openai.transcription(oggPath)
 
         saveLog(ctx.chat.id, "VOICE: "+text)
         await removeLastMsg(ctx)
