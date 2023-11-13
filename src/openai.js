@@ -31,25 +31,53 @@ class myOpenAI {
             return {content:"Ошибка открытия чата"}
         }
     }
+
     async genImage(message,cnt) {
         try {            
-            const response = await this.openai.createImage({
+            const response = await this.openai.images.generate({
                 prompt: message,
-                n: cnt,
-                size: "1024x1024",
+                n: cnt,               
             });
             const image_url = [];
-            image_url.push(response.data.data[0].url);
+            image_url.push(response.data[0].url);
             if (cnt>1){
-                image_url.push(response.data.data[1].url);
-                image_url.push(response.data.data[2].url);
-                image_url.push(response.data.data[3].url);
+                image_url.push(response.data[1].url);
+                image_url.push(response.data[2].url);
+                image_url.push(response.data[3].url);
             }              
             //console.log( response.data)
             return image_url
         } catch (e) {
             console.log("Error in GPT CHAT generate Image",e.message)
             return {content:"Ошибка открытия чата генерации изображения"}
+        }
+    }
+
+
+    async editImage(urls,msg) {
+        try {   
+            
+            console.log("DRAW ", msg)
+            const cntVar = 1
+            const response = await this.openai.images.edit({
+                image       : createReadStream(urls.png),
+                mask        : createReadStream(urls.mask),
+                prompt      : msg,
+                n           : cntVar
+            });            
+            
+            
+            console.log(response.data[0].url)            
+            const image_url = []
+            for (let i=0;i<cntVar;i++){
+                image_url.push(response.data[i].url)
+            }
+                                      
+            return image_url
+
+        } catch (e) {
+            console.log("Error in GPT CHAT edit Image",e.message)
+            return {content:"Ошибка открытия чата редактирования изображения"}
         }
     }
 

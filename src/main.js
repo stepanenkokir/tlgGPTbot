@@ -6,12 +6,18 @@ import config from 'config'
 import { ogg } from "./ogg.js";
 import {openai} from './openai.js'
 import {allow_user} from './AllowedUserManager.js'
+import { photo_handler } from "./photo.js"
+import axios  from "axios"
 
 const { combine, timestamp, printf } = format;
 const outputOggFile= 'voices/tmpOggFile.ogg'
 const bot = new Telegraf(config.get('TELEGRAM_TOKEN'))
 
-let lastAwaitMsg
+const firstPhotoUrl = []
+const firstPhotoMsg = []
+const lastAwaitMsg = []
+
+let noRoundMask = config.get('roundMask')
 
 const adminId = config.get('adminId')
 const listNames = {};
@@ -24,6 +30,7 @@ const parametres = {
     setrole:false,
     cnt:1,
     voice:false,
+    roundMask: noRoundMask
 }
 // Log format
 const logFormat = printf(({ level, message, timestamp }) => {
@@ -58,7 +65,8 @@ bot.use((ctx, next) => {
         listNames[userId] = userId+"_"+ctx.chat.first_name+"_"+ctx.chat.last_name+ '_@'+ctx.chat.username
        // console.log("Create ", userId, listNames, ctx)
     }
-    saveLog(userId,  ctx.message.text);
+    if (ctx && ctx.message && ctx.message.text)
+        saveLog(userId,  ctx.message.text);
     next();
   });
 
@@ -135,17 +143,31 @@ bot.command('new',async (ctx) =>{
 })
 
 
+bot.command('roundmask',async (ctx) =>{
+    if (!checkSession(ctx.chat.id))return;   
+
+    if (session[ctx.chat.id].parametres.roundMask){
+        ctx.reply(' Маска в форме круга в центре картинки')
+        session[ctx.chat.id].parametres.roundMask = false
+    }
+    else
+    {       
+        ctx.reply(' Указывайте маску вручную')
+        session[ctx.chat.id].parametres.roundMask = true
+    }    
+})
+
 bot.command('voice',async (ctx) =>{
     if (!checkSession(ctx.chat.id))return;   
 
-    if (parametres.voice){
+    if (session[ctx.chat.id].parametres.voice){
         ctx.reply(' Голосовые ответы выключены.')
-        parametres.voice = false
+        session[ctx.chat.id].parametres.voice = false
     }
     else
     {
         ctx.reply(' Голосовые ответы включены.')
-        parametres.voice = true
+        session[ctx.chat.id].parametres.voice = true
     }    
 })
 
@@ -162,6 +184,8 @@ function newSessionArray(chatId) {
     // Создаем новую сессию и добавляем ее в объект сессий
     session[chatId] = {
         messages:[],
+        created : new Date(),
+        parametres : parametres
     };
    // console.log("Free session ", session[chatId].messages.length)
 }
@@ -187,8 +211,9 @@ function checkSession(chatId,ctx) {
      }
     const sess = getSession(chatId);
     // Проверка наличия сессии
-    if (!sess) {     
+    if (!sess || (new Date() - sess.created > 30*60*1000)) {     
       // Создание новой сессии
+      console.log("New session for ", chatId)
       newSessionArray(chatId);
      // console.log("Session create for ", chatId)
     }
@@ -200,43 +225,42 @@ function checkSession(chatId,ctx) {
 bot.command('image',async (ctx) =>{
     // Получение текущей сессии клиента
      if (!checkSession(ctx.chat.id))return;
-    parametres.image = true
-    parametres.cnt = 1
-    lastAwaitMsg = await ctx.reply('Сейчас введите описание желаемой картинки')
+     session[ctx.chat.id].parametres.image = true
+     session[ctx.chat.id].parametres.cnt = 1
+    lastAwaitMsg[ctx.chat.id] = await ctx.reply('Сейчас введите описание желаемой картинки')
 })
 
 bot.command('images',async (ctx) =>{
     // Получение текущей сессии клиента
      if (!checkSession(ctx.chat.id))return;
-    parametres.image = true
-    parametres.cnt = 4
-    lastAwaitMsg = await ctx.reply('Сейчас введите описание желаемой картинки (будет 4 варианта)') 
+    session[ctx.chat.id].parametres.image = true
+    session[ctx.chat.id].parametres.cnt = 4
+    lastAwaitMsg[ctx.chat.id] = await ctx.reply('Сейчас введите описание желаемой картинки (будет 4 варианта)') 
 })
 
 
 bot.command('image1',async (ctx) =>{
     // Получение текущей сессии клиента
      if (!checkSession(ctx.chat.id))return;
-    parametres.image1 = true
-    parametres.cnt = 1
-    lastAwaitMsg = await ctx.reply('Oписание реалестичной картинки.')
+    session[ctx.chat.id].parametres.image1 = true
+    session[ctx.chat.id].parametres.cnt = 1
+    lastAwaitMsg[ctx.chat.id] = await ctx.reply('Oписание реалестичной картинки.')
 })
 
 bot.command('role',async (ctx) =>{
     // Получение текущей сессии клиента
     if (!checkSession(ctx.chat.id))return;
-    parametres.setrole = true
+    session[ctx.chat.id].parametres.setrole = true
     await ctx.reply('Скажите, кто я сейчас?')
 })
 
 bot.command('image2',async (ctx) =>{
     // Получение текущей сессии клиента
      if (!checkSession(ctx.chat.id))return;
-    parametres.image1 = true
-    parametres.cnt = 1
-    lastAwaitMsg = await ctx.reply('Oписание сюрреалестичной картинки.')
+    session[ctx.chat.id].parametres.image1 = true
+    session[ctx.chat.id].parametres.cnt = 1
+    lastAwaitMsg[ctx.chat.id] = await ctx.reply('Oписание сюрреалестичной картинки.')
 })
-
 
 bot.command('secretmenu',async (ctx) =>{
     // Получение текущей сессии клиента
@@ -244,6 +268,7 @@ bot.command('secretmenu',async (ctx) =>{
    
     await ctx.reply('скрытые варианты команд: \n \
     /role - задать роль \n \
+    /roundmask - включить или выключить задание маски для отправки фото \n \
     /voice - включить или выключить голосовой ответ \n \
     /image1 - красивая натуральная картинка \n \
     /image2 - красивая ненатуральная картинка')
@@ -257,13 +282,10 @@ bot.command('mem',async (ctx) =>{
 bot.on(message('voice'), async ctx => {
      if (!checkSession(ctx.chat.id))return;
     try {
-        lastAwaitMsg =  await ctx.reply(code('Подождите, обрабатываю...'))       
+        lastAwaitMsg[ctx.chat.id] =  await ctx.reply(code('Подождите, обрабатываю...'))       
         const userId = String(ctx.message.from.id)
         const link = await ctx.telegram.getFileLink(ctx.message.voice.file_id)
         const oggPath = await ogg.create(link.href, userId,'ogg')
-        // const mp3Path = await ogg.toMP3(oggPath, userId)
-
-        //const text = await openai.transcription(mp3Path)
         const text = await openai.transcription(oggPath)
 
         saveLog(ctx.chat.id, "VOICE: "+text)
@@ -276,12 +298,100 @@ bot.on(message('voice'), async ctx => {
     }
 })
 
+const downloadImage = async (url) =>{
+    const response = await axios.get(url, { responseType: 'arraybuffer' });
+    return Buffer.from(response.data, 'binary');
+}
+
+
+bot.on('edited_message', async (ctx) => {
+    // Check if it's a photo message
+    if (ctx.editedMessage && ctx.editedMessage.photo && firstPhotoUrl[ctx.chat.id]) {
+        // Handle edited photo logic here
+        const userId = String(ctx.editedMessage.from.id);
+        const msg = firstPhotoMsg[ctx.chat.id]? firstPhotoMsg[ctx.chat.id]: ctx.editedMessage.caption?ctx.editedMessage.caption:"Draw something";
+        const arrayPhotos = ctx.editedMessage.photo;
+        const lastPhoto = arrayPhotos[arrayPhotos.length - 1];
+        const link = await ctx.telegram.getFileLink(lastPhoto.file_id);
+        await removeLastMsg(ctx)
+        lastAwaitMsg[ctx.chat.id] = await ctx.reply(code('Редактирую фото...'))
+        
+        const resizedPhoto = await photo_handler.resizedImageBuffer2(firstPhotoUrl[ctx.chat.id],link, userId);
+        const response = await openai.editImage(resizedPhoto,msg)
+        await removeLastMsg(ctx)
+        lastAwaitMsg[ctx.chat.id] = await ctx.reply(code('Загрузка фото...'))
+        for (let i=0;i<response.length;i++){
+            const image =  await downloadImage(response[i])
+            await ctx.replyWithPhoto({source:image})
+            //await ctx.reply(response[i])             
+        }
+            
+        if (response.content){
+            ctx.reply(response.content) 
+        }
+       
+        await removeLastMsg(ctx)  
+        newSessionArray(ctx.chat.id)
+
+        firstPhotoUrl[ctx.chat.id] = null
+        firstPhotoMsg[ctx.chat.id] = null
+    }
+})
+
+bot.on( message('photo'), async ctx => {
+    if (!checkSession(ctx.chat.id))return;
+    try {
+        const userId = String(ctx.message.from.id)
+        firstPhotoMsg[ctx.chat.id] = ctx.message.caption
+        const arrayPhotos = ctx.message.photo
+        const lastPhoto = arrayPhotos[arrayPhotos.length -1]
+        firstPhotoUrl[ctx.chat.id] = await ctx.telegram.getFileLink(lastPhoto.file_id)
+       
+        if (session[ctx.chat.id].parametres.roundMask){
+            lastAwaitMsg[ctx.chat.id] =  await ctx.reply("Ok. Для продолжения нужно отредактировать это фото. Закрасьте контрастным цветом места, которые нужно перерисовать")
+            return
+        }
+
+
+       const resizedPhoto = await photo_handler.resizedImageBuffer(firstPhotoUrl[ctx.chat.id], userId)
+
+        console.log(resizedPhoto)
+
+        lastAwaitMsg[ctx.chat.id] = await ctx.reply(code('Редактирую фото...'))
+        const response = await openai.editImage(resizedPhoto,firstPhotoMsg[ctx.chat.id])
+        await removeLastMsg(ctx)
+        lastAwaitMsg[ctx.chat.id] = await ctx.reply(code('Загруэка фото...'))
+        for (let i=0;i<response.length;i++){
+            
+            try {
+                const image =  await downloadImage(response[i])
+                await ctx.replyWithPhoto({source:image})
+            } catch (error) {
+                await ctx.reply(response[i])
+            }                        
+            
+        }
+            
+        if (response.content){
+            ctx.reply("Ups...", response.content) 
+        }
+       
+        await removeLastMsg(ctx)  
+        newSessionArray(ctx.chat.id)
+       
+
+    } catch (error) {
+         console.log("Error while MESSAGE PHOTO",error.message)
+        await ctx.reply('Что-то не так. Ошибка при обработке изображения.')
+    }    
+})
+
 const removeLastMsg = async (ctx) =>{
     try {
-        await ctx.telegram.deleteMessage(ctx.chat.id, lastAwaitMsg.message_id)
-        lastAwaitMsg = null
+        await ctx.telegram.deleteMessage(ctx.chat.id, lastAwaitMsg[ctx.chat.id].message_id)
+        lastAwaitMsg[ctx.chat.id] = null
     } catch (error) {
-        console.log("Not data for lastAwaitMsg:",lastAwaitMsg)
+        console.log("Not data for lastAwaitMsg:",lastAwaitMsg[ctx.chat.id])
     }           
 }
 
@@ -289,54 +399,57 @@ const textHandler = async (ctx, text) =>{
 
     await removeLastMsg(ctx)
 
-    if (parametres.setrole){
+    if (session[ctx.chat.id].parametres.setrole){
         newSessionArray(ctx.chat.id)
         session[ctx.chat.id].messages.push({role:openai.roles.SYSTEM, content:text})
         await ctx.reply("Установлена новая роль")
-        parametres.setrole = false
+        session[ctx.chat.id].parametres.setrole = false
         return
     }
 
-    if (parametres.image1 || text.toLowerCase().includes('нарисуй')){
-        lastAwaitMsg = await ctx.reply(code('Я рисую...'))
+    if (session[ctx.chat.id].parametres.image1 || text.toLowerCase().includes('нарисуй')){
+        lastAwaitMsg[ctx.chat.id] = await ctx.reply(code('Я рисую...'))
         const response = await openai.genImage1(text,0)
         await removeLastMsg(ctx)
         await ctx.reply(response[0])            
         parametres.image1 = false
+        newSessionArray(ctx.chat.id)
         return
     }
 
-    if(parametres.image2){
-        lastAwaitMsg = await ctx.reply(code('Я рисую...'))           
+    if(session[ctx.chat.id].parametres.image2){
+        lastAwaitMsg[ctx.chat.id] = await ctx.reply(code('Я рисую...'))           
         const response = await openai.genImage1(text,1)
         await removeLastMsg(ctx)
         await ctx.reply(response[0])            
         
         parametres.image2 = false
+        newSessionArray(ctx.chat.id)
         return
     }
 
-    if (parametres.image){
-        lastAwaitMsg = await ctx.reply(code('Я рисую...'))           
-        const response = await openai.genImage(text,parametres.cnt)
+    if (session[ctx.chat.id].parametres.image){
+        lastAwaitMsg[ctx.chat.id] = await ctx.reply(code('Я рисую...'))           
+        const response = await openai.genImage(text,session[ctx.chat.id].parametres.cnt)
         await removeLastMsg(ctx)
         await ctx.reply(response[0])
-        if (parametres.cnt>1){
+        if (session[ctx.chat.id].parametres.cnt>1){
             await ctx.reply(response[1])
             await ctx.reply(response[2])
             await ctx.reply(response[3])    
         }
         
-        parametres.image = false
+        session[ctx.chat.id].parametres.image = false
+        newSessionArray(ctx.chat.id)
         return
     }
    
-    lastAwaitMsg = await ctx.reply(code('Я думаю...'))        
+    lastAwaitMsg[ctx.chat.id] = await ctx.reply(code('Я думаю...'))        
     session[ctx.chat.id].messages.push({role:openai.roles.USER, content: text})
     const response = await openai.chat(session[ctx.chat.id].messages)
     session[ctx.chat.id].messages.push({role:openai.roles.ASSISTANT, content:response.content})        
     
-    if (parametres.voice || text.toLowerCase().includes('расскажи')){   
+    if (session[ctx.chat.id].parametres.voice || text.toLowerCase().includes('расскажи')){   
         const voiceFile = await openai.genVoice(response.content, ctx.chat.id)
         console.log("Voice answer here: ",voiceFile)
         await ctx.replyWithVoice({source:voiceFile})
