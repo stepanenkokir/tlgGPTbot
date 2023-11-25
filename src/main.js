@@ -30,6 +30,7 @@ const parametres = {
     setrole:false,
     cnt:1,
     voice:false,
+    vision:false,
     roundMask: noRoundMask
 }
 // Log format
@@ -347,6 +348,22 @@ bot.on( message('photo'), async ctx => {
         const arrayPhotos = ctx.message.photo
         const lastPhoto = arrayPhotos[arrayPhotos.length -1]
         firstPhotoUrl[ctx.chat.id] = await ctx.telegram.getFileLink(lastPhoto.file_id)
+
+
+        if ( parametres.vision ){
+            await removeLastMsg(ctx)
+            lastAwaitMsg[ctx.chat.id] =  await ctx.reply("ну-с, поглядим...")
+            const response = await openai.getVisionImage(firstPhotoUrl[ctx.chat.id])
+            await removeLastMsg(ctx)
+            if (response){
+                ctx.reply(response)
+            }else{
+                ctx.reply("Ничего не понятно :o((")
+            }
+            
+            parametres.vision = false
+            return
+        }
        
         if (session[ctx.chat.id].parametres.roundMask){
             lastAwaitMsg[ctx.chat.id] =  await ctx.reply("Ok. Для продолжения нужно отредактировать это фото. Закрасьте контрастным цветом места, которые нужно перерисовать")
@@ -405,6 +422,13 @@ const textHandler = async (ctx, text) =>{
         session[ctx.chat.id].messages.push({role:openai.roles.SYSTEM, content:text})
         await ctx.reply("Установлена новая роль")
         session[ctx.chat.id].parametres.setrole = false
+        return
+    }
+
+    if ( text.toLowerCase().includes('что') && text.toLowerCase().includes('видишь')){
+        lastAwaitMsg[ctx.chat.id] = await ctx.reply(code('Прикрепи фото, попробую посмотреть...'))
+        newSessionArray(ctx.chat.id)
+        parametres.vision = true       
         return
     }
 

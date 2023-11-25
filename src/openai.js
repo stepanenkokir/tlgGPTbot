@@ -53,6 +53,37 @@ class myOpenAI {
         }
     }
 
+    async getVisionImage(url) {
+        try{
+            console.log("URL = ", url.href)
+            const response = await this.openai.chat.completions.create({
+                model: "gpt-4-vision-preview",
+                max_tokens: 600,
+                messages: [
+                  {
+                    role: "user",
+                    content: [
+                      { type: "text", text: "What’s in this image? Answer in russian" },
+                      {
+                        type: "image_url",
+                        image_url: {
+                          //"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg",
+                          //"url":"https://api.telegram.org/file/bot6204549173:AAFLlNM3ggDJTQr8MpMNvApK3Hf_VODCoYA/photos/file_113.jpg",
+                          "url":url.href,
+                          "detail": "low"
+                        },
+                      },
+                    ],
+                  },
+                ],
+              });
+              console.log(response.choices[0])
+              return response.choices[0].message.content
+        }catch(error){
+            console.log("Error vision: ", error.message)
+        }
+        return null
+    }
 
     async editImage(urls,msg) {
         try {   
