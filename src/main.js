@@ -64,11 +64,12 @@ bot.use((ctx, next) => {
         
         listNames[userId] = userId+"_"+ctx.chat.first_name+"_"+ctx.chat.last_name+ '_@'+ctx.chat.username
        // console.log("Create ", userId, listNames, ctx)
+       next()
     }
     if (ctx && ctx.message && ctx.message.text)
-        saveLog(userId,  ctx.message.text);
-    next();
-  });
+        saveLog(userId,  ctx.message.text)
+    
+  })
 
 // Приветственное сообщение
 bot.start((ctx) => {
