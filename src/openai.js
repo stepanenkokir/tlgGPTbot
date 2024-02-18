@@ -53,22 +53,24 @@ class myOpenAI {
         }
     }
 
-    async getVisionImage(url) {
+    async getVisionImage(url, msg) {
         try{
             console.log("URL = ", url.href)
+                        
+          
+            const textMsg = msg?msg :"What’s in this image? Answer in russian."
+            console.log("MSG = ", textMsg)
             const response = await this.openai.chat.completions.create({
                 model: "gpt-4-vision-preview",
-                max_tokens: 600,
+                max_tokens: 3000,
                 messages: [
                   {
                     role: "user",
                     content: [
-                      { type: "text", text: "What’s in this image? Answer in russian" },
+                      { type: "text", text:textMsg },
                       {
                         type: "image_url",
-                        image_url: {
-                          //"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg",
-                          //"url":"https://api.telegram.org/file/bot6204549173:AAFLlNM3ggDJTQr8MpMNvApK3Hf_VODCoYA/photos/file_113.jpg",
+                        image_url: {                        
                           "url":url.href,
                           "detail": "low"
                         },

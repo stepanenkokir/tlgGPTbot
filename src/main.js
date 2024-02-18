@@ -31,6 +31,7 @@ const parametres = {
     cnt:1,
     voice:false,
     vision:false,
+    question:"",
     roundMask: noRoundMask
 }
 // Log format
@@ -60,20 +61,26 @@ const saveLog = (id, msg) => {
 }
 
 bot.use((ctx, next) => {
+    
     const userId = ctx.from.id;
+   
+
     if (!listNames.hasOwnProperty(userId)){
         
         listNames[userId] = userId+"_"+ctx.chat.first_name+"_"+ctx.chat.last_name+ '_@'+ctx.chat.username
-       // console.log("Create ", userId, listNames, ctx)
-        return  
+        console.log("Create ", userId, listNames, ctx)
+     
     }
-    if (ctx && ctx.message && ctx.message.text)
+    if (ctx && ctx.message && ctx.message.text){    
         saveLog(userId,  ctx.message.text)
+        
+    }
     next()
+   
   })
 
 // Приветственное сообщение
-bot.start((ctx) => {
+bot.start(async (ctx) => {
     const userId = ctx.from.id;
     if (allow_user.isUserAllowed(userId)) {
         ctx.reply('Привет! Для работы с чатом GPT нужно отправить текстовое или голосовое сообщение. \
@@ -82,10 +89,13 @@ bot.start((ctx) => {
         командой /new (или через меню) чтобы не захламлять память и ускорить работу чата. Удачи. Вопросы и предложения отправлять @stekiva');
         checkSession(userId)
     } else {
-        ctx.reply('Вы не являетесь разрешенным пользователем. \nДля получения разрешения отправьте команду\n /join \nили напишите сообщение автору @stekiva');
-    }
-    
-  });
+        try {
+        const resp = await ctx.reply('Вы не являетесь разрешенным пользователем. \nДля получения разрешения отправьте команду\n /join \nили напишите сообщение автору @stekiva');
+        }catch(error){
+            console.log("Error Bot Start ", error.message)
+        }       
+    }    
+  })
 
 bot.command('join',async (ctx) =>{
     await bot.telegram.sendMessage(adminId, 'Этот пользователь хочет юзать бота\n '+ctx.chat.first_name+" "+ctx.chat.last_name+ ' @'+ctx.chat.username);
@@ -124,7 +134,7 @@ bot.command('stekirAdd', (ctx) => {
     bot.telegram.sendMessage(data, "Вы пока не можете пользоваться ботом. @stekiva", { parse_mode: 'HTML' });
      
     } else {
-      ctx.reply('Вы не передали данные после команды.');
+      ctx.reply('Вы не передали данные после команды.')
     }
   });
 
@@ -139,9 +149,14 @@ bot.command('stekirList', (ctx) => {
 
 bot.command('new',async (ctx) =>{
      if (!checkSession(ctx.chat.id))return;
-    newSessionArray(ctx.chat.id)
-    ctx.reply('Начата новая сессия. Введите текст или отправьте голосовое сообщение.')
-   // console.log(ctx.message.chat.id)
+     try{
+        newSessionArray(ctx.chat.id)
+        await ctx.reply('Начата новая сессия. Введите текст или отправьте голосовое сообщение.')
+       // console.log(ctx.message.chat.id)
+    }catch(error){
+        console.log("Error NER command ", error.message)
+    }
+    
 })
 
 
@@ -204,23 +219,32 @@ function getSession(chatId) {
 }
 
 // Функция для проверки текущей сессии клиента
-function checkSession(chatId,ctx) {
+const  checkSession = async (chatId,ctx)=>{
+    console.log("Check session for ", chatId)
+    try{
+        if (!allow_user.isUserAllowed(chatId)) {
+            try {
+                await bot.telegram.sendMessage(chatId, "'Вы не являетесь разрешенным пользователем. \nДля получения разрешения отправьте команду\n /join \nили напишите сообщение автору @stekiva'", { parse_mode: 'HTML' });    
+            } catch (error) {
+                console.log("Error send MSG", error.message)
+            }
+            
 
-    if (!allow_user.isUserAllowed(chatId)) {
-        bot.telegram.sendMessage(chatId, "'Вы не являетесь разрешенным пользователем. \nДля получения разрешения отправьте команду\n /join \nили напишите сообщение автору @stekiva'", { parse_mode: 'HTML' });
-
-        return false;
-     }
-    const sess = getSession(chatId);
-    // Проверка наличия сессии
-    if (!sess || (new Date() - sess.created > 30*60*1000)) {     
-      // Создание новой сессии
-      console.log("New session for ", chatId)
-      newSessionArray(chatId);
-     // console.log("Session create for ", chatId)
+            return false;
+        }
+        const sess = getSession(chatId);
+        // Проверка наличия сессии
+        if (!sess || (new Date() - sess.created > 30*60*1000)) {     
+        // Создание новой сессии
+        console.log("New session for ", chatId)
+        newSessionArray(chatId);
+        // console.log("Session create for ", chatId)
+        }
+     console.log("Session is good!!", chatId)
+    return true;
+    }catch(error){
+        console.log("Error checkSession ", error.message)   
     }
-   // console.log("Session is good!!", chatId)
-   return true;
 }
 
 
@@ -340,28 +364,30 @@ bot.on('edited_message', async (ctx) => {
     }
 })
 
-bot.on( message('photo'), async ctx => {
-    if (!checkSession(ctx.chat.id))return;
+bot.on( message('photo'), async ctx => {  
+    if (!checkSession(ctx.chat.id))return
+
     try {
         const userId = String(ctx.message.from.id)
-        firstPhotoMsg[ctx.chat.id] = ctx.message.caption
+        firstPhotoMsg[ctx.chat.id] = ctx.message.caption? ctx.message.caption:""
         const arrayPhotos = ctx.message.photo
         const lastPhoto = arrayPhotos[arrayPhotos.length -1]
         firstPhotoUrl[ctx.chat.id] = await ctx.telegram.getFileLink(lastPhoto.file_id)
 
 
-        if ( parametres.vision ){
+        if ( session[ctx.chat.id].parametres.vision ){
             await removeLastMsg(ctx)
             lastAwaitMsg[ctx.chat.id] =  await ctx.reply("ну-с, поглядим...")
-            const response = await openai.getVisionImage(firstPhotoUrl[ctx.chat.id])
+            const sendMsg = `${session[ctx.chat.id].parametres.question} ${firstPhotoMsg[ctx.chat.id]}`
+            const response = await openai.getVisionImage(firstPhotoUrl[ctx.chat.id],  sendMsg)
             await removeLastMsg(ctx)
             if (response){
                 ctx.reply(response)
             }else{
                 ctx.reply("Ничего не понятно :o((")
             }
-            
-            parametres.vision = false
+            session[ctx.chat.id].parametres.question = false
+            session[ctx.chat.id].parametres.vision = false
             return
         }
        
@@ -385,6 +411,7 @@ bot.on( message('photo'), async ctx => {
                 const image =  await downloadImage(response[i])
                 await ctx.replyWithPhoto({source:image})
             } catch (error) {
+                console.log("ERROR ",error)
                 await ctx.reply(response[i])
             }                        
             
@@ -409,7 +436,7 @@ const removeLastMsg = async (ctx) =>{
         await ctx.telegram.deleteMessage(ctx.chat.id, lastAwaitMsg[ctx.chat.id].message_id)
         lastAwaitMsg[ctx.chat.id] = null
     } catch (error) {
-        console.log("Not data for lastAwaitMsg:",lastAwaitMsg[ctx.chat.id])
+        console.log("Not data for lastAwaitMsg:",lastAwaitMsg[ctx.chat.id],error)
     }           
 }
 
@@ -428,7 +455,8 @@ const textHandler = async (ctx, text) =>{
     if ( text.toLowerCase().includes('что') && text.toLowerCase().includes('видишь')){
         lastAwaitMsg[ctx.chat.id] = await ctx.reply(code('Прикрепи фото, попробую посмотреть...'))
         newSessionArray(ctx.chat.id)
-        parametres.vision = true       
+        session[ctx.chat.id].parametres.question = text
+        session[ctx.chat.id].parametres.vision = true       
         return
     }
 
