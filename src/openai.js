@@ -22,7 +22,8 @@ class myOpenAI {
     async chat (messages) {
         try {            
             const response = await this.openai.chat.completions.create({                         
-                model:'gpt-4-1106-preview',               
+                //model:'gpt-4-1106-preview', 
+                model:"gpt-4o-2024-05-13",              
                 messages,
             })
             return response.choices[0].message
@@ -58,11 +59,12 @@ class myOpenAI {
             console.log("URL = ", url.href)
                         
           
-            const textMsg = msg?msg :"What’s in this image? Answer in russian."
+            const textMsg = msg.length>3 ? msg : "What’s in this image? Answer in russian."
             console.log("MSG = ", textMsg)
             const response = await this.openai.chat.completions.create({
-                model: "gpt-4-vision-preview",
-                max_tokens: 3000,
+                //model: "gpt-4-vision-preview",
+                model:"gpt-4o",
+                max_tokens:600,
                 messages: [
                   {
                     role: "user",
@@ -71,8 +73,7 @@ class myOpenAI {
                       {
                         type: "image_url",
                         image_url: {                        
-                          "url":url.href,
-                          "detail": "low"
+                          "url":url.href
                         },
                       },
                     ],
@@ -114,16 +115,29 @@ class myOpenAI {
         }
     }
 
+
+    /*
+    Realistic: A lifelike representation with attention to detail and accuracy.
+Cartoonish: A playful, exaggerated style with bold colors and simple shapes.
+Abstract: Non-representational, using shapes, colors, and forms to achieve an effect.
+Vintage: A retro or old-fashioned look, often with sepia tones or faded colors.
+Futuristic: Depicting advanced technology and innovative design, often with sleek lines and glowing elements.
+Fantasy: Imaginative and magical, often featuring mythical creatures and enchanted landscapes.
+Minimalistic: Simple and clean design with minimal elements and colors.
+Surrealistic: Dream-like, bizarre, and fantastical, often defying logic and reality.
+Impressionistic: Inspired by the Impressionist art movement, focusing on light and color rather than precise detail.
+Watercolor: Soft, fluid brushstrokes with a washed-out, translucent appearance.
+*/
     async genImage1(message,cnt) {
         try {    
-            console.log("DRAW ",message)       
+            const style = cnt==0 ? " In realistic style" : " In cartoonish and surrealistic style"
+            console.log("DRAW ",message, cnt, )       
             const response = await this.openai.images.generate({
                 model: "dall-e-3",
-                prompt: message,
+                prompt: message+style,
                 n: 1,
-                size: "1024x1024",
-                style: ["vivid","natural"][cnt]
-            });
+                size: "1792x1024",
+            })
             const image_url = [];
             image_url.push(response.data[0].url);
             
