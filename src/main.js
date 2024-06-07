@@ -110,7 +110,8 @@ bot.use((ctx, next) => {
         console.log("Create ", userId, listNames, ctx)
     }
     const chatId = ctx.chat.id
-    const mwCheck = checkSession(chatId)   
+    const mwCheck = checkSession(chatId)  
+    console.log(ctx.message.text, mwCheck) 
     if ( mwCheck ) {
         if (ctx && ctx.message && ctx.message.text){    
             saveLog(userId,  ctx.message.text)
@@ -118,7 +119,7 @@ bot.use((ctx, next) => {
         return next();
     }
     else {
-        return    
+        return false   
     }
 })
 
@@ -489,7 +490,7 @@ function getSession(chatId) {
 }
 
 // Функция для проверки текущей сессии клиента
-const  checkSession = async (chatId,ctx)=>{
+const  checkSession = (chatId,ctx)=>{
     console.log("Check session for ", chatId)
     try{
         if (!allow_user.isUserAllowed(chatId)) {
